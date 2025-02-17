@@ -5,8 +5,6 @@ import AppMain from './components/AppMain'
 import AppFooter from './components/AppFooter'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
     <>
       <AppHeader/>

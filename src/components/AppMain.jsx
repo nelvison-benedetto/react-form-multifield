@@ -1,280 +1,229 @@
 //AppMain.jsx
-import { useState, useEffect} from 'react'
+import { useState, useEffect } from 'react'
 import ManhuaCard from './ManhuaCard/ManhuaCard'
+import { v4 as uuidv4 } from 'uuid';  //npm install uuid, but better use it in backend(still not using Autoincrement with sql)
 
-export default function AppMain(){
-
-  // const initialTasks = ['Learn JS','Learn PHP','Learn Laravel','Learn Python','Learn C#','Learn C++','Learn AI'];
-  // const [tasks, setTasks] = useState(initialTasks);  //tasks is the array, setTasks to edit it, initialTasks initial data
-  // const [newTask, setNewTask] = useState('');
-  // const [filteredTasks, setFilteredTasks] = useState(tasks);
+export default function AppMain() {
 
   const availableTags = ['Isekai', 'Mecha', 'Slice of Life', 'Romantic Comedy', 'Fantasy'];
-
   const initialFormData = {  //the key names (i.e. "title") must be exactly the same in the html (i.e. <...name="title">) to link!
+    slug: '',
     title: '',
     content: '',
     price: 0,
     file: null,
     category: '',
     tags: [],
-    visibility: ''
+    visibility: '',
   }
 
+  const [searchedText, setSearchedText] = useState('');
   const [formData, setFormData] = useState(initialFormData)
-  // const [selectedTitle, setSelectedTitle] = useState('');
-  // const [selectedContent, setSelectedContent] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
-  // const [selectedCategory, setSelectedCategory] = useState('');
-  // const [selectedTags, setSelectedTags] = useState([]);
-  // const [selectedVisibility, setSelectedVisibility] = useState('');
+  const [selectedFileURL, setSelectedFileURL] = useState(null);  //use this x preview img before submit on the browser
   const [mangas, setMangas] = useState([]);
-  const [searchText, setSearchText] = useState('');
   const [filteredMangas, setFilteredMangas] = useState(mangas);
+  const [successMessage, setSuccessMessage] = useState('');  //x green mex after submit
 
 
-  function addTask(e){
-    e.preventDefault();  //prevent the page refresh
-    if(newTask.trim() === '') {  //avoid the insertion of empty tasks.
-      return; 
-    }
-    const newTasks_local= [
-      newTask,
-      ...tasks,
-    ];
-    console.log(`added new Task ${newTask}`);
-    setTasks(newTasks_local);
-    setNewTask('');  //clean input
-  }
-  
-
-  function handleTrashManga(mangaId){
-    const newMangas_local = mangas.filter((item,index)=> item.id !== mangaId);
-    setMangas(newMangas_local);
-  }
-
-  function fetchData(url = 'http://localhost:3001/something'){
-    fetch(url)
-      .then(res => res.json())
-      .then(response =>{
-        //console.log(response.data);  //check the data received from server
-        setMangas(response.data);  //upload data from the other loclhost(prj. express-blog-api-crud) + edit mangas
+  function fetchData(){
+    fetch('http://localhost:3001/posts/')  //URL of RUNNING BACKEND APP repo 'express-api-crud'
+      .then(res=>res.json())
+      .then(response=>{
+        setMangas(response.data);  //response data contains all obj posts in the backend 
       })
       .catch(error => {
         console.error("Error fetching data:", error);
       });
   }
-  // useEffect(fetchData, [])
-
-  useEffect(() => {
-    fetchData(); 
-  }, []);   // Run only 1 time at the initial assembly
-
-  useEffect(()=>{
-    const filteredMangas = mangas.filter((item,index)=> item.title.toLowerCase().trim().includes(searchText.toLowerCase().trim()));
-    //console.log(filteredMangas);
-    setFilteredMangas(filteredMangas);
-  }, [mangas, searchText]  //executed each time mangas or searchText change
-  );
-  
-
-  function handleSearchForm(e){
-    e.preventDefault();
-    alert('Form sent');
+  function fetchDataPOST(formDataToSend) {
+    fetch('http://localhost:3001/posts/', {
+      method: 'POST',
+      body: formDataToSend, // type form-data(x send also file type) not json (i.e. JSON.stringify(newManga))
+    })
+    .then(res => res.json())  
+    .then(response => {
+      console.log('Success', response);
+      setMangas(response.data);  //set mangas with new uploaded list of mangas of the db
+    })
+    .catch(err => console.error('The Error:', err));
   }
 
-  function handleFormField(e){
-    const {name, type, value, checked} = e.target;  //top properties of an input
-    if (name === "file" && e.target.files.length > 0) {
-      const fileSelect = e.target.files[0];
-      if (fileSelect instanceof File) {   //CHECK IF ITS A FILE AND NOT A STR!!
-        const fileSelectedURL = URL.createObjectURL(fileSelect);  //create an obl image only to view it in the same browser
+  useEffect(() => {
+    fetchData();
+  },[]);   // [] means run only 1 time at the initial assembly
+
+  useEffect(()=>{
+    const xfilteredMangas=mangas.filter((item,index) =>item.title.toLowerCase().replace(/\s+/g,"").includes(searchedText.toLowerCase().replace(/\s+/g,"")));
+    setFilteredMangas(xfilteredMangas);
+  }, [mangas, searchedText]);  //executed each time mangas or searchedText change
+  
+
+
+  function handleSearchForm(e){e.preventDefault();}  //prevent default behaviour
+
+
+  function handleFormField(e) {
+    const{ name, type, value, checked, files } = e.target;  //extract top properties from the input!
+    if(name==="file"&& e.target.files.length > 0) {
+      const xfileSelected = e.target.files[0];
+      if (xfileSelected instanceof File) {   //CHECK IF ITS A FILE AND NOT A STR!!
+        const xfileSelectedURL = URL.createObjectURL(xfileSelected);  //create an obl image only x preview in the same browser
+        
         setFormData((prev) => ({
           ...prev,
-          file: fileSelect,   //at submit always convert automatically obl-->deepfake
+          file: xfileSelected,   
         }));
-        console.log('The Type of file:', typeof formData.file);  
-        setSelectedFile(fileSelectedURL);
+        setSelectedFileURL(xfileSelectedURL);
+        setSelectedFile(xfileSelected);
       }
     }
-    if(name==='tags'){
-      const updatedTags = checked ? [...formData.tags, value] :  formData.tags.filter(item=>item!==value);
-      setFormData(prev =>({
+    else if(name==='tags'){
+      const newTags = value.includes(',') ? value.split(',').map(item => item.trim()) : [value];
+      console.log("Newtags: "+newTags);
+      const updatedTags = checked ? [...formData.tags, ...newTags] : formData.tags.filter(item => !newTags.includes(item));
+      console.log("Updatedtags: "+updatedTags);
+      setFormData(prev=>({
         ...prev,
         tags: updatedTags
       }));
     }
-    else if(type ==='checkbox' || type==='radio'){
-      setFormData(prev =>({
+    else if(type==='checkbox'||type==='radio'){
+      setFormData(prev=>({
         ...prev,
-        [name]: checked ? value : ''
+        [name]: checked ? value : ''  //[name] is the 'name=' in html! must be EXACTLY like the property in dataForm
       }));
     }
     else{
-      setFormData(prev=>({
+      setFormData(prev=>({ 
         ...prev,
-        [name]: value
+        [name]: value  //[name] is the 'name=' in html! must be EXACTLY like the property in dataForm
       }))
     }
+  }
 
-    console.log('The Type of file:', typeof formData.file);    
+  function handleTrashManga(mangaId) { 
+    const updatesMangas = mangas.filter((item, index) => item.id!== mangaId);
+    setMangas(updatesMangas);
   }
 
   function generateSlug(theformData) {
-    if(!theformData.title){return '';}
-    const generatedSlug = theformData.title.toLowerCase().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-').trim();
-    return generatedSlug;
+    if (!theformData.title){return '';}
+    else{
+      const generatedSlug = theformData.title.toLowerCase().trim().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g, '-').trim();
+      return generatedSlug;
+    }
   }
 
   function handleFormSubmit(e) {
-    e.preventDefault()
-    // const newManga = {  
-    //   id: Date.now(),
-    //   ...formData,
-    //   slug: generateSlug(formData),
-    //   //fileObl: selectedFile  //PASS FILE OBL TO SEE IMG ON BROWSER!!submit convert automaticaaly obl->fakepath 
-    // }
-    // //setMangas([
-    //   //newManga,
-    //   //...mangas
-    // //]);
-
-    console.log('The Type of file:', typeof formData.file);   //COVERT HERE OBJ->STR !!!!
+    e.preventDefault();
 
     const formDataToSend = new FormData();
-    formDataToSend.append('id', Date.now());
-    formDataToSend.append('title', formData.title);
-    formDataToSend.append('content', formData.content);
+    formDataToSend.append('slug', generateSlug(formData));
+    formDataToSend.append('title', formData.title.trim());
+    formDataToSend.append('content', formData.content.trim());
     formDataToSend.append('price', formData.price);
-    if(formData.file && formData.file instanceof File){
-
+    if (formData.file && formData.file instanceof File){
       formDataToSend.append('file', formData.file);
     }
-    else{console.log("not obj file type!!");}
+    else { console.log("no obj file found."); }
     formDataToSend.append('category', formData.category);
     formDataToSend.append('visibility', formData.visibility);
-    formDataToSend.append('tags', formData.tags);
-    formDataToSend.append('slug', generateSlug(formData));
-    
-    for (let pair of formDataToSend.entries()) {
+    formDataToSend.append("tags", JSON.stringify(formData.tags));  //altrimenti converte automatically array in str
+
+    for (let pair of formDataToSend.entries()){
       console.log(`${pair[0]}:`, pair[1]);
     }
 
-
-    //console.log('File:', formData.file);
-    // console.log('Type of file:', typeof formDataToSend.file);
-    // console.log('Is it a File object?', formDataToSend.file instanceof File);
-
-    fetch('http://localhost:3001/something', {
-      method: 'POST',
-      // body: JSON.stringify(newManga),  //use a Form Data x Files!!
-      // headers: {
-      //   'Content-Type': 'application/json',
-      // },
-      body: formDataToSend,
-    })
-      .then(res => res.json())
-      .then(response => {
-        console.log('Success', response);
-        setMangas(response.data);
-      })
-      .catch(err => console.error('The Error:', err));
+    fetchDataPOST(formDataToSend);
 
     setFormData(initialFormData)  //reset
-    setSelectedFile(null);  
+    setSelectedFile(null);  //reset
+    setSelectedFileURL(null);  //reset
+    const fileInput = document.getElementById("formFile");
+    if(fileInput){fileInput.value = "";}  //reset also the file value(che altrimenti rimane come testo nell'input file)
+
+    setSuccessMessage("Added new Manhua successfully! 🥳");  //mex success
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 3000);
   }
 
-  
+////////HTML////////
 
-  // function handleChangeTitle(e){
-  //   setSelectedTitle(e.target.value);
-  // }
-  // function handleChangeContent(e){
-  //   setSelectedContent(e.target.value);
-  // }
-  // function handleChangeFile(e){
-  //   console.log(e.target.files);
-  //   setSelectedFile(URL.createObjectURL(e.target.files[0]));
-  //   console.log(selectedFile);
-  // }
-  // function handleChangeCategory(e){
-  //   setSelectedCategory(e.target.value);
-  // }
-  // function handleChangeTag(e){
-  //   const tag = e.target.value;
-  //   const isChecked = e.target.checked;
-  //   if(isChecked){
-  //     setSelectedTags((prevTags)=>[...prevTags,tag]);
-  //   }
-  //   else{
-  //     setSelectedTags((prevTags)=>prevTags.filter((item)=> item !== tag));
-  //   }
-  // }
-  // function handleChangeVisibility(e){
-  //   setSelectedVisibility(e.target.value);
-  // }
-  // function createManga(e){
-  //   e.preventDefault();
-  //   if(selectedTitle.trim()==='' || selectedContent.trim()===''){return;}
-  //   const newManga = {
-  //     title: selectedTitle,
-  //     content : selectedContent,
-  //     file : selectedFile,
-  //     category : selectedCategory,
-  //     tags : selectedTags,
-  //     visibility : selectedVisibility
-  //   };
-  //   setMangas((prevMangas) =>[...prevMangas, newManga]);
-  //   setSelectedTitle('');
-  //   setSelectedContent('');
-  //   setSelectedFile(null);
-  //   setSelectedCategory('');
-  //   setSelectedTags([]);
-  //   setSelectedVisibility('');
-  // }
 
-  function showMangas(){
-    console.log(mangas);
-  }
-
-  return(
+  return (
     <main id='debug'>
-      <div className='container py-3'>
 
-        <div className='d-flex justify-content-end'>
-          <form onSubmit={handleSearchForm} className=''>
-              <input 
-                type="search"
-                className='form-control'
-                name='searchText'
-                //id='searchText'
-                id='formSearchText'
-                aria-describedby='searchelper'
-                placeholder='🍜 Search ...' 
-                value={searchText}
-                onChange={e=> setSearchText(e.target.value)}
-              />
+      {successMessage && (
+        
+        <div className="alert alert-success fixed-top text-center mt-4 mx-auto col-4" style={{zIndex: 10,backgroundColor:"green", borderRadius:"0.7rem"}}>
+          <h4 style={{color:"white", paddingTop:"0.1rem"}}>{successMessage}</h4>
+        </div>
+      )}
+
+      <div className='container' style={{paddingBottom:"4rem"}}>
+
+        <div className='d-flex justify-content-end my-3'>
+          <form onSubmit={handleSearchForm} className='' style={{ backgroundColor: "#262626" }}>
+            <label htmlFor="searchtext" class="form-label">Search your favourite manhua</label>
+            <input
+              type="search"
+              className='form-control'
+              name='searchtext'
+              id='searchtext'
+              //aria-describedby='searchelper' to link to a elem <small> down here, x screenreaders
+              placeholder='🍜 Search ...'
+              value={searchedText}
+              onChange={e => setSearchedText(e.target.value)}
+            />
           </form>
         </div>
 
-        <form className='my-3 rounded p-4' onSubmit={handleFormSubmit}>
-          <div className='row'>
-            <div className='form-group col-md-6 '>
-              <div className='form-group mb-3'>
-                <label className='' htmlFor="formTitle">Manhua Title</label>
-                <input className='form-control' type="text" id="formTitle" name="title" placeholder='Title'  value={formData.title} onChange={handleFormField}/> {/* required value= */}
+
+        <form className="container rounded p-4 mb-3"  onSubmit={handleFormSubmit}>
+          <div className="row">
+            {/*first column*/}
+            <div className="col-md-8">
+
+              {/*title, 1stcol-1strow*/}
+              <div className="mb-3">
+                <label htmlFor="formTitle" className="form-label">Manhua Title</label>
+                <input
+                  className="form-control"
+                  required type="text"
+                  id="formTitle"
+                  name="title"
+                  placeholder="Title"
+                  value={formData.title}
+                  onChange={handleFormField}
+                />  {/* required value= */}
               </div>
-              <div className='row mb-3'>
-                <div className='form-group col-md-6 '>
-                  <label htmlFor="formFile" className='form-label'>Add photo: </label><br />
-                  <label className="btn btn-DarkRose" htmlFor="formFile">Choose File</label> 
-                  <input className="form-control d-none" type="file" id="formFile" name="file" accept="image/*" onChange={handleFormField}/>  {/* accept="image/*" ACCEPT ONLY IMG! */}
-                  {selectedFile && <img src={selectedFile} alt='cover image' className='img-fluid rounded'/>}
-                  
+
+              {/*file+category, 1stcol-2ndrow*/}
+              <div className="row ">  {/*>=768px i due figli si dispongono orizzontalmente(altrimenti rimangono in block)*/}
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="formFile" className="form-label">Picture:</label>
+                  {/* <label className="btn btn-DarkRose" htmlFor="formFile">Choose File</label>*/}  {/*CUSTOM BUTTON,simulate button,type="file" needs a <label>! */}
+                  <input
+                    className="form-control"
+                    required type="file"
+                    id="formFile"
+                    name="file"
+                    accept="image/*"
+                    onChange={handleFormField}
+                  />  {/* accept="image/*" ACCEPT ONLY IMG!*/}
+                  {selectedFile && <img src={selectedFileURL} alt="cover image" className="img-fluid rounded mt-2" />}
                 </div>
-                <div className='form-group col-md-6'>
-                  <label htmlFor="formCategory">Select category</label>
-                  <select className='form-select ' id='formCategory' name='category' value={formData.category} onChange={handleFormField}>
+                <div className="col-md-6 mb-3">
+                  <label htmlFor="formCategory" className="form-label">Category</label>
+                  <select
+                    className="form-select"
+                    id="formCategory"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleFormField}
+                  >
                     <option value="None">None</option>
                     <option value="Shonen">Shonen</option>
                     <option value="Shojo">Shojo</option>
@@ -284,77 +233,99 @@ export default function AppMain(){
                   </select>
                 </div>
               </div>
-              <div className='row'>
-                <div className='form-group col-md-6 ps-4'>
-                    <div className='row'> 
-                      <label htmlFor="" className='form-label px-0'>
-                        <span className='mx-0 px-0'>Tags:</span>
-                      </label>
-                      {availableTags.map((tag, index) => (
-                        <div key={index} className='form-check col-md-6'>
-                          <input 
-                            className="form-check-input" 
-                            type="checkbox" 
-                            value={tag} 
-                            id={`formTag${tag.replace(/\s+/g,'')}`} 
-                            name='tags'
-                            onChange={handleFormField} 
-                            checked={formData.tags.includes(tag)}
-                          />
-                          <label className='form-check-label' htmlFor={`formTag${tag.replace(/\s+/g,'')}`}>
-                            {tag}
-                          </label>
-                        </div>
-                      ))}
-                    </ div>
-                  
-                </div>
-                <div className='form-group col-md-6 '>
-                  <div className='d-flex justify-content-center gap-4'>
-                    <div>
-                      <input className='btn-check me-1' type="radio" id='formVisibilityPost' name='visibility' value="post" autoComplete='off' onChange={handleFormField} checked={formData.visibility==='post'}/>
-                      <label className='btn btn-outline-DarkRose' htmlFor="formVisibilityPost">Post</label>
-                    </div>
-                    <div>
-                      <input className='btn-check me-1' type="radio" id='formVisibilityArchive' name='visibility' value="archive" autoComplete='off' onChange={handleFormField} checked={formData.visibility==='archive'}/>
-                      <label className='btn btn-outline-DarkRose' htmlFor="formVisibilityArchive">Archive</label>
-                    </div>
+
+              {/*tags+ postarchive+price, 1stcol-3rdrow*/}
+              <div className="row ">
+
+                {/*tags*/}
+                <div className="col-md-6 mb-3">
+                  <div className="row">  {/*row useful x tags a capo*/}
+                    <span className=''>Tags:</span>
+                    {availableTags.map((item, index) => (
+                      <div key={index} className='form-check col-md-6' style={{paddingLeft:"2.15rem"}}>
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          value={item}
+                          id={`formTag${item.replace(/\s+/g,'')}`}
+                          name="tags"
+                          onChange={handleFormField}
+                          checked={formData.tags.includes(item)}
+                        />
+                        <label className='form-check-label' htmlFor={`formTag${item.replace(/\s+/g,'')}`}>
+                          {item}
+                        </label>
+                      </div>
+                    ))}
                   </div>
-                  <div className='form-group'>
+                </div>
+
+                <div className="col-md-6 ">
+                  <div className="mb-3 d-flex justify-content-center align-items-center gap-5" role="group" aria-label="Visibility">
+                    <input
+                      type="radio"
+                      className="btn-check"  //quando use btn-check USARE SEMPRE <label> DOPO <input>!
+                      name="visibility"
+                      id="formVisibilityPost"
+                      value="post"
+                      autoComplete="off"
+                      onChange={handleFormField}
+                      checked={formData.visibility === 'post'}
+                    />  {/*btn-check disable default radiobutton style, autoComplete disable autocompletamento(i.e. x logins ectect)*/}
+                    <label className="btn btn-outline-DarkRose" htmlFor="formVisibilityPost">Post</label>
+                    <input
+                      type="radio"
+                      className="btn-check"
+                      name="visibility"
+                      id="formVisibilityArchive"
+                      value="archive"
+                      autoComplete="off"
+                      onChange={handleFormField}
+                      checked={formData.visibility === 'archive'}
+                    />
+                    <label className="btn btn-outline-DarkRose" htmlFor="formVisibilityArchive">Archive</label>
+                  </div>
+                  <div className='mb-3'>
                     <label htmlFor="formPrice" className='form-label'>Price</label>
-                    <div className='input-group'>
+                    <div className='input-group'>  
                       <span className="input-group-text">$</span>
-                      <input className='form-control' type="number" min="0" step={0.1} id='formPrice' name='price' placeholder='100.00' aria-describedby="pricehelper" value={formData.price} onChange={handleFormField}/>
+                      <input className='form-control' type="number" min="0" step={0.1} id='formPrice' name='price' placeholder='100.00' aria-describedby="pricehelper" value={formData.price} onChange={handleFormField} />
                     </div>
                     <small id="pricehelper" className="form-text text-white">Type the price of your manhua</small>
                   </div>
                 </div>
               </div>
             </div>
-            <div className='form-group col-md-6'>
-              <div className='form-group'>
-                <label htmlFor="formContent">Content</label>
-                <textarea className='form-control' type="text" rows='7' id='formContent' name='content' placeholder='Content' value={formData.content} onChange={handleFormField}/>  {/*required value= */}
-              </div>
-              <div className='form-group col-md-8 mt-4 mx-auto'>
-                <button className='btn btn-DarkRose w-100' type='submit' id='formSubmit' name='submit'>
-                  <span className='d-flex align-items-center justify-content-center gap-2'>
-                    <span>SAVE</span> 
-                    <i className="bi bi-cloud-arrow-up"/>
-                  </span>
-                </button>
-                <button type="button" onClick={showMangas}>show mangas</button>
-              </div>
+
+            {/*second column*/}
+            <div className="col-md-4">
+              <label htmlFor="formContent">Content</label>
+              <textarea
+                className="form-control mb-3"
+                rows="7"
+                id="formContent"
+                name="content"
+                placeholder="Content"
+                value={formData.content}
+                onChange={handleFormField}
+              />
+              <button className="btn btn-DarkRose w-100" type="submit">
+                <span className="d-flex align-items-center justify-content-center gap-2">
+                  <span>SAVE</span>
+                  <i className="bi bi-cloud-arrow-up" />
+                </span>
+              </button>
             </div>
           </div>
-        </form>
+        </form>        
 
         <section className='row row-cols-1 row-cols-sm-1 row-cols-md-2 row-cols-lg-3 g-3 mb-3'>
-          {filteredMangas.map((item,index)=><ManhuaCard key={item.id} data={item} onTrashManga={handleTrashManga}/>)}  {/*la key serve a map for track*/}
+          {filteredMangas.map((item, index) => <ManhuaCard key={item.id} data={item} onTrashManga={handleTrashManga} />)}  {/*la key serve a map for track*/}
         </section>
-
+        
       </div>
-    </main> 
+    </main>
   );
+
 }
 

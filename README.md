@@ -1,8 +1,8 @@
-# React + Vite
+## React Frontend Form + Posts
+output:
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Created a frontend system to display all posts from the backend, featuring search functionality for filtering and a form for adding new manhua.
+!Run backend repo https://github.com/nelvison-benedetto/express-blog-api-crud 
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+![Reference1](./references/desktop.png)
+![Reference2](./references/mobile.png)
